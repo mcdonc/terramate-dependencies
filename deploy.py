@@ -117,6 +117,11 @@ if __name__ == "__main__":
         help="Specify a stack (can be used multiple times)."
         )
     ap.add_argument(
+        "--omit",
+        action="append",
+        help="Omit these stacks (can be used multiple times)."
+        )
+    ap.add_argument(
         "--unattended",
         action="store_true",
         help="Automatically approve apply or destroy, no questions asked."
@@ -128,20 +133,31 @@ if __name__ == "__main__":
         )
     args = ap.parse_args()
     deployment = Deployment()
-    if args.stack is None:
+    stacks = args.stack
+    if stacks is None:
         stacks = ()
     else:
-        stacks = [ f"stack.{stack}" for stack in args.stack ]
-    deps, edges = deployment.find_dependencies(*stacks)
+        stacks = [ f"stack.{stack}" for stack in stacks ]
+    stack_deps, stack_edges = deployment.find_dependencies(*stacks)
+    omits = args.omit
+    if omits is None:
+        omits = ()
+    else:
+        omits = [ f"stack.{stack}" for stack in omits ]
+    for omit in omits:
+        stack_deps.discard(omit)
+    print(f"deploying {stack_deps}")
     command = args.command
     if command == "graph":
         print("All Dependencies")
-        for dep in sorted(deps):
+        for dep in sorted(stack_deps):
             print(f"  {dep}")
-        print("Edges")
-        for src, dst in sorted(edges):
+
+
+            print("Edges")
+        for src, dst in sorted(stack_edges):
             print(f"  {src} -> {dst}")
-        show_graph(edges)
+        show_graph(stack_edges)
     if command in ("apply", "destroy"):
         workspace = args.workspace
         root = deployment.root
@@ -149,8 +165,8 @@ if __name__ == "__main__":
         autoa = ""
         if args.unattended:
             autoa="-auto-approve"
-        if deps:
-            tagsopt = f'--tags={",".join(deps)}'
+        if stack_deps:
+            tagsopt = f'--tags={",".join(stack_deps)}'
         tm_run = f"terramate run {tagsopt} -X"
         run("terramate generate", cwd=root)
         run(
