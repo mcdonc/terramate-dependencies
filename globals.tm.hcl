@@ -26,5 +26,7 @@ globals "terraform" "providers" "null" {
 
 globals "available_dependencies" {
   vpc  = "daadbae0-240b-4cea-ba23-5b79ba080751"
-  ec2 = "f5f1711a-f854-439b-a0f9-d08a2e4d7f71"
+  ec2-jack = "f5f1711a-f854-439b-a0f9-d08a2e4d7f71"
+  ec2-diane = "a447e34d-8b6d-45bb-b489-beaeb349bd5d"
+  dynamodb = "7d466f45-7030-4da2-9620-5f67e6d1f3ee"
 }

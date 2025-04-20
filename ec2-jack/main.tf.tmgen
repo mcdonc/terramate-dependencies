@@ -1,7 +1,7 @@
 resource "aws_security_group" "example_sg" {
   vpc_id = data.terraform_remote_state.vpc.outputs.vpc_id
   tags = {
-    Name = "example-sg-${terraform.workspace}"
+    Name = "example-sg-jack-${terraform.workspace}"
   }
 
   ingress {
@@ -31,12 +31,12 @@ resource "aws_instance" "example_instance" {
   ami           = "ami-0c02fb55956c7d316"
   instance_type = "t2.micro"
   subnet_id     = data.terraform_remote_state.vpc.outputs.vpc_subnet
-  security_groups = [
+  vpc_security_group_ids = [
     aws_security_group.example_sg.id
   ]
 
   tags = {
-    Name = "example-ec2-instance-${terraform.workspace}"
+    Name = "ec2-jack-instance-${terraform.workspace}"
   }
 }
 

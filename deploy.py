@@ -4,7 +4,6 @@ import os
 import pathlib
 import subprocess
 
-import graphviz
 import hcl2
 
 def run(command, **runargs):
@@ -97,6 +96,8 @@ class Deployment:
 
 
 def show_graph(edges):
+    import graphviz
+
     dot = graphviz.Digraph()
     for src, dst in edges:
         dot.edge(src, dst)
@@ -114,6 +115,11 @@ if __name__ == "__main__":
         "--stack",
         action="append",
         help="Specify a stack (can be used multiple times)."
+        )
+    ap.add_argument(
+        "--unattended",
+        action="store_true",
+        help="Automatically approve apply or destroy, no questions asked."
         )
     ap.add_argument(
         "--workspace",
@@ -140,9 +146,13 @@ if __name__ == "__main__":
         workspace = args.workspace
         root = deployment.root
         tagsopt = ""
+        autoa = ""
+        if args.unattended:
+            autoa="-auto-approve"
         if deps:
             tagsopt = f'--tags={",".join(deps)}'
         tm_run = f"terramate run {tagsopt} -X"
+        run("terramate generate", cwd=root)
         run(
             f"{tm_run} -- terraform init",
             cwd=root
@@ -152,9 +162,9 @@ if __name__ == "__main__":
             cwd=root
         )
         if command == "apply":
-            run(f"{tm_run} -- terraform apply", cwd=root)
+            run(f"{tm_run} -- terraform apply {autoa}", cwd=root)
         else:
-            run(f"{tm_run} --reverse -- terraform destroy", cwd=root)
+            run(f"{tm_run} --reverse -- terraform destroy {autoa}", cwd=root)
    
     
     
