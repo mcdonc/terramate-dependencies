@@ -125,7 +125,7 @@ if __name__ == "__main__":
     if args.stack is None:
         stacks = ()
     else:
-        stacks = args.stack
+        stacks = [ f"stack.{stack}" for stack in args.stack ]
     deps, edges = deployment.find_dependencies(*stacks)
     command = args.command
     if command == "graph":
@@ -141,16 +141,18 @@ if __name__ == "__main__":
         tagsopt = ""
         if deps:
             tagsopt = f'--tags={",".join(deps)}'
+        tm_run = f"terramate run {tagsopt} -X"
+        run(
+            f"cd {deployment.root}; {tm_run} -- "
+            f"terraform workspace select -or-create {workspace}"
+        )
         if command == "apply":
             run(
-                f"cd {deployment.root}; terramate run {tagsopt} -X "
-                f"terraform workspace select -or-create {workspace}; "
-                f"terramate run {tagsopt} -X terraform apply"
+                f"cd {deployment.root}; {tm_run} -- terraform apply"
             )
         else:
             run(
-                f"cd {deployment.root}; terramate run {tagsopt} --reverse -X "
-                "terraform destroy"
+                f"cd {deployment.root}; {tm_run} --reverse -- terraform destroy"
             )
    
     
