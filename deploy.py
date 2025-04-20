@@ -64,7 +64,7 @@ class Deployment:
             target_tags = list(self.stack_map.keys())
 
         dependencies = set()
-        pairs = set()
+        edges = set()
 
         def resolve_after_dependencies(stack_tag):
             if stack_tag not in self.stack_map:
@@ -78,7 +78,7 @@ class Deployment:
                     if after_tag not in dependencies:
                         dependencies.add(after_tag)
                         resolve_after_dependencies(after_tag)
-                    pairs.add((after_tag[6:], stack_tag[6:]))
+                    edges.add((after_tag[6:], stack_tag[6:]))
 
         for target_tag in sorted(target_tags):
             dependencies.add(target_tag)
@@ -91,14 +91,14 @@ class Deployment:
                     if before_tag in dependencies:
                         dependencies.add(stack_tag)
                         resolve_after_dependencies(stack_tag)
-                        pairs.add((stack_tag[6:], before_tag[6:]))
+                        edges.add((stack_tag[6:], before_tag[6:]))
 
-        return dependencies, pairs
+        return dependencies, edges
 
 
-def show_graph(pairs):
+def show_graph(edges):
     dot = graphviz.Digraph()
-    for src, dst in pairs:
+    for src, dst in edges:
         dot.edge(src, dst)
     dot.render("infra-graph", format="png", view=True)
 
@@ -126,16 +126,16 @@ if __name__ == "__main__":
         stacks = ()
     else:
         stacks = args.stack
-    deps, pairs = deployment.find_dependencies(*stacks)
+    deps, edges = deployment.find_dependencies(*stacks)
     command = args.command
     if command == "graph":
         print("All Dependencies")
         for dep in sorted(deps):
             print(f"  {dep}")
         print("Edges")
-        for src, dst in sorted(pairs):
+        for src, dst in sorted(edges):
             print(f"  {src} -> {dst}")
-        show_graph(*args.tags, pairs)
+        show_graph(*args.tags, edges)
     if command in ("apply", "destroy"):
         workspace = args.workspace
         tagsopt = ""
