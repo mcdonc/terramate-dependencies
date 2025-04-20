@@ -135,25 +135,26 @@ if __name__ == "__main__":
         print("Edges")
         for src, dst in sorted(edges):
             print(f"  {src} -> {dst}")
-        show_graph(*args.tags, edges)
+        show_graph(edges)
     if command in ("apply", "destroy"):
         workspace = args.workspace
+        root = deployment.root
         tagsopt = ""
         if deps:
             tagsopt = f'--tags={",".join(deps)}'
         tm_run = f"terramate run {tagsopt} -X"
         run(
-            f"cd {deployment.root}; {tm_run} -- "
-            f"terraform workspace select -or-create {workspace}"
+            f"{tm_run} -- terraform init",
+            cwd=root
+        )
+        run(
+            f"{tm_run} -- terraform workspace select -or-create {workspace}",
+            cwd=root
         )
         if command == "apply":
-            run(
-                f"cd {deployment.root}; {tm_run} -- terraform apply"
-            )
+            run(f"{tm_run} -- terraform apply", cwd=root)
         else:
-            run(
-                f"cd {deployment.root}; {tm_run} --reverse -- terraform destroy"
-            )
+            run(f"{tm_run} --reverse -- terraform destroy", cwd=root)
    
     
     
