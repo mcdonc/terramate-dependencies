@@ -20,7 +20,6 @@ def find_directory_upwards(dirname, start_dir=None):
         if potential_dir.is_dir():
             return potential_dir
 
-
 class Deployment:
     def __init__(self):
         stacks = []
@@ -58,50 +57,162 @@ class Deployment:
             raise ValueError(".git could not be found in parents")
         return os.path.dirname(gitdir)
 
-    def find_dependencies(self, target_tags, omit_tags):
+    def flatten_edges(self, edges):
+        flattened = set()
+        for src, dst in edges:
+            if src != "__root__":
+                flattened.add(src)
+            flattened.add(dst)
+        return flattened
+    
+    def find_edges(self, target_tags, prune_tags=()):
         if not target_tags:
-            target_tags = list(self.stack_map.keys())
+            target_tags = set(self.stack_map.keys())
+        else:
+            target_tags = set(target_tags)
 
-        dependencies = set()
         edges = set()
 
         def resolve_after_dependencies(stack_tag):
             if not stack_tag in self.stack_map:
                 return
-            if stack_tag in omit_tags:
-                return
 
             stack = self.stack_map[stack_tag]
 
-            for after_tag in stack.get("after", []):
-                if after_tag.startswith("tag:"):
-                    after_tag = after_tag[4:]
-                    if after_tag in omit_tags:
-                        continue
-                    if after_tag not in dependencies:
-                        dependencies.add(after_tag)
-                        resolve_after_dependencies(after_tag)
-                    edges.add((after_tag[6:], stack_tag[6:]))
+            after_tags = [
+                tag for tag in stack.get("after", []) if tag.startswith("tag:")
+            ]
 
-        for target_tag in sorted(target_tags):
-            dependencies.add(target_tag)
+            for after_tag in after_tags:
+                after_tag = after_tag[4:] # "tag:"
+                if after_tag in prune_tags:
+                    continue
+                edges.add((after_tag, stack_tag))
+                resolve_after_dependencies(after_tag)
+            else:
+                edges.add(("__root__", stack_tag))
+
+        for target_tag in target_tags:
             resolve_after_dependencies(target_tag)
 
         for stack_tag, stack in self.stack_map.items():
             for before_tag in stack.get("before", []):
                 if before_tag.startswith("tag:"):
-                    before_tag = before_tag[4:]
-                    if before_tag in omit_tags:
-                        continue
-                    if before_tag in dependencies:
-                        dependencies.add(stack_tag)
-                        resolve_after_dependencies(stack_tag)
-                        edges.add((stack_tag[6:], before_tag[6:]))
+                    raise ValueError(f"before tags unsupported: {stack_tag}")
 
-        return dependencies, edges
+        return edges
 
+    def run(self, args):
+        stacks = args.stack
+        if stacks is None:
+            stacks = ()
+        else:
+            stacks = [ f"stack.{stack}" for stack in stacks ]
 
-def show_graph(edges):
+        prunes = None # disabled, gives wrong results currently
+        if prunes is None:
+            prunes = ()
+        else:
+            prunes = [ f"stack.{stack}" for stack in prunes ]
+
+        omits = args.omit
+        if omits is None:
+            omits = set()
+        else:
+            omits = set([ f"stack.{stack}" for stack in omits ])
+
+        raw_edges = self.find_edges(stacks)
+        raw_deps = self.flatten_edges(raw_edges)
+
+        if prunes:
+            prune_edges = self.find_edges(prunes)
+            prune_deps = self.flatten_edges(prune_edges)
+        else:
+            prune_edges = ()
+            prune_deps = ()
+
+        filtered_edges = self.find_edges(stacks, prune_deps)
+        filtered_deps = self.flatten_edges(filtered_edges)
+
+        pruned_edges = filtered_edges.difference(prune_edges)
+        pruned_deps = self.flatten_edges(pruned_edges)
+
+        final_deps = pruned_deps.difference(omits)
+
+        command = args.command
+
+        if command == "debug":
+            print("Raw Edges")
+            for src, dst in sorted(raw_edges):
+                print(f"  {src} -> {dst}")
+            print("Raw Dependencies")
+            for dep in sorted(raw_deps):
+                print(f"  {dep}")
+            print("Prune Edges")
+            for src, dst in sorted(prune_edges):
+                print(f"  {src} -> {dst}")
+            print("Prune Dependencies")
+            for dep in sorted(prune_deps):
+                print(f"  {dep}")
+            print("Filtered Edges")
+            for src, dst in sorted(filtered_edges):
+                print(f"  {src} -> {dst}")
+            print("Filtered Dependencies")
+            for dep in sorted(filtered_deps):
+                print(f"  {dep}")
+            print("Pruned Edges")
+            for src, dst in sorted(pruned_edges):
+                print(f"  {src} -> {dst}")
+            print("Pruned Dependencies")
+            for dep in sorted(pruned_deps):
+                print(f"  {dep}")
+            print("Omits")
+            for dep in sorted(omits):
+                print(f"  {dep}")
+            print("Final Dependencies")
+            for dep in sorted(final_deps):
+                print(f"  {dep}")
+            
+                
+        if command == "graph":
+            show_graph(pruned_edges, omits)
+        if command in ("apply", "destroy", "plan"):
+            workspace = args.workspace
+            root = deployment.root
+            tagsopt = ""
+            autoa = ""
+            if args.unattended:
+                autoa="-auto-approve"
+            if filtered_deps:
+                tagsopt = f'--tags={",".join(final_deps)}'
+            trun = f"terramate run {tagsopt} -X"
+
+            run("terramate generate", cwd=root)
+            run(
+                f"{trun} -- terraform init",
+                cwd=root
+            )
+            run(
+                f"{trun} -- terraform workspace select -or-create {workspace}",
+                cwd=root
+            )
+            if command == "apply":
+                run(
+                    f"{trun} -- terraform apply {autoa}",
+                    cwd=root
+                )
+            if command == "plan":
+                run(
+                    f"{trun} -- terraform plan",
+                    cwd=root
+                )
+            if command == "destroy":
+                run(
+                    f"{trun} --reverse -- terraform destroy {autoa}",
+                    cwd=root
+                )
+
+def show_graph(edges, omits):
     import graphviz
 
     dot = graphviz.Digraph()
@@ -115,17 +226,25 @@ if __name__ == "__main__":
 
     ap.add_argument(
         "command",
-        choices=["apply", "destroy", "graph", "showdeps", "plan"],
+        choices=["apply", "destroy", "graph", "debug", "plan"],
     )
     ap.add_argument(
         "--stack",
         action="append",
         help="Specify a stack (can be used multiple times)."
         )
+    # pruning doesn't work yet
+    # ap.add_argument(
+    #     "--prune",
+    #     action="append",
+    #     help=("Prune these stacks and the stacks they depend on (can be used "
+    #           "multiple times).")
+    #     )
     ap.add_argument(
         "--omit",
         action="append",
-        help="Omit these stacks (can be used multiple times)."
+        help=("Omit these stacks, but not stacks they depend on (can be used "
+              "multiple times).")
         )
     ap.add_argument(
         "--unattended",
@@ -139,52 +258,4 @@ if __name__ == "__main__":
         )
     args = ap.parse_args()
     deployment = Deployment()
-    stacks = args.stack
-    if stacks is None:
-        stacks = ()
-    else:
-        stacks = [ f"stack.{stack}" for stack in stacks ]
-    omits = args.omit
-    if omits is None:
-        omits = ()
-    else:
-        omits = [ f"stack.{stack}" for stack in omits ]
-    stack_deps, stack_edges = deployment.find_dependencies(stacks, omits)
-    command = args.command
-    if command == "showdeps":
-        print("Dependencies")
-        for dep in sorted(stack_deps):
-            print(f"  {dep[6:]}")
-        print("Edges")
-        for src, dst in sorted(stack_edges):
-            print(f"  {src} -> {dst}")
-    if command == "graph":
-        show_graph(stack_edges)
-    if command in ("apply", "destroy", "plan"):
-        workspace = args.workspace
-        root = deployment.root
-        tagsopt = ""
-        autoa = ""
-        if args.unattended:
-            autoa="-auto-approve"
-        if stack_deps:
-            tagsopt = f'--tags={",".join(stack_deps)}'
-        tm_run = f"terramate run {tagsopt} -X"
-        run("terramate generate", cwd=root)
-        run(
-            f"{tm_run} -- terraform init",
-            cwd=root
-        )
-        run(
-            f"{tm_run} -- terraform workspace select -or-create {workspace}",
-            cwd=root
-        )
-        if command == "apply":
-            run(f"{tm_run} -- terraform apply {autoa}", cwd=root)
-        if command == "plan":
-            run(f"{tm_run} -- terraform plan", cwd=root)
-        if command == "destroy":
-            run(f"{tm_run} --reverse -- terraform destroy {autoa}", cwd=root)
-   
-    
-    
+    deployment.run(args)
