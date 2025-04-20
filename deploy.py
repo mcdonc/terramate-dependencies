@@ -58,7 +58,7 @@ class Deployment:
             raise ValueError(".git could not be found in parents")
         return os.path.dirname(gitdir)
 
-    def find_dependencies(self, *target_tags):
+    def find_dependencies(self, target_tags, omit_tags):
         if not target_tags:
             target_tags = list(self.stack_map.keys())
 
@@ -66,7 +66,9 @@ class Deployment:
         edges = set()
 
         def resolve_after_dependencies(stack_tag):
-            if stack_tag not in self.stack_map:
+            if not stack_tag in self.stack_map:
+                return
+            if stack_tag in omit_tags:
                 return
 
             stack = self.stack_map[stack_tag]
@@ -74,6 +76,8 @@ class Deployment:
             for after_tag in stack.get("after", []):
                 if after_tag.startswith("tag:"):
                     after_tag = after_tag[4:]
+                    if after_tag in omit_tags:
+                        continue
                     if after_tag not in dependencies:
                         dependencies.add(after_tag)
                         resolve_after_dependencies(after_tag)
@@ -88,6 +92,8 @@ class Deployment:
                 if before_tag.startswith("tag:"):
                     before_tag = before_tag[4:]
                     if before_tag in dependencies:
+                        if before_tag in omit_tags:
+                            continue
                         dependencies.add(stack_tag)
                         resolve_after_dependencies(stack_tag)
                         edges.add((stack_tag[6:], before_tag[6:]))
@@ -138,23 +144,19 @@ if __name__ == "__main__":
         stacks = ()
     else:
         stacks = [ f"stack.{stack}" for stack in stacks ]
-    stack_deps, stack_edges = deployment.find_dependencies(*stacks)
     omits = args.omit
     if omits is None:
         omits = ()
     else:
         omits = [ f"stack.{stack}" for stack in omits ]
-    for omit in omits:
-        stack_deps.discard(omit)
+    stack_deps, stack_edges = deployment.find_dependencies(stacks, omits)
     print(f"deploying {stack_deps}")
     command = args.command
     if command == "graph":
         print("All Dependencies")
         for dep in sorted(stack_deps):
             print(f"  {dep}")
-
-
-            print("Edges")
+        print("Edges")
         for src, dst in sorted(stack_edges):
             print(f"  {src} -> {dst}")
         show_graph(stack_edges)
