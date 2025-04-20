@@ -30,7 +30,7 @@ resource "aws_security_group" "example_sg" {
 
 # Key pair for SSH access
 resource "aws_key_pair" "example_key_pair" {
-  key_name   = "example-key-pair"
+  key_name   = "example-key-pair-${terraform.workspace}"
   public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOLXUsGqUIEMfcXoIiiItmGNqOucJjx5D6ZEE3KgLKYV ednesia"
   tags = {
     Name = "example-key-pair-${terraform.workspace}"
