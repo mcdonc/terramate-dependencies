@@ -1,0 +1,61 @@
+# Create a VPC
+resource "aws_vpc" "example_vpc" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+
+  tags = {
+    Name = "example-vpc"
+  }
+}
+
+# Create a subnet
+resource "aws_subnet" "example_subnet" {
+  vpc_id                  = aws_vpc.example_vpc.id
+  cidr_block              = "10.0.1.0/24"
+  availability_zone       = "us-east-1a" # Change to your preferred AZ
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "example-subnet"
+  }
+}
+
+# Create an internet gateway
+resource "aws_internet_gateway" "example_igw" {
+  vpc_id = aws_vpc.example_vpc.id
+
+  tags = {
+    Name = "example-igw"
+  }
+}
+
+# Create a route table
+resource "aws_route_table" "example_route_table" {
+  vpc_id = aws_vpc.example_vpc.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.example_igw.id
+  }
+
+  tags = {
+    Name = "example-route-table"
+  }
+}
+
+# Associate the route table with the subnet
+resource "aws_route_table_association" "example_route_table_association" {
+  subnet_id      = aws_subnet.example_subnet.id
+  route_table_id = aws_route_table.example_route_table.id
+}
+
+output "vpc_id" {
+  description = "VPC ID"
+  value = aws_vpc.example_vpc.id
+}
+
+output "vpc_subnet" {
+  description = "vpc subnet"
+  value = aws_subnet.example_subnet.id
+}
