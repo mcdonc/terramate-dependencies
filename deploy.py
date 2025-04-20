@@ -115,7 +115,7 @@ if __name__ == "__main__":
 
     ap.add_argument(
         "command",
-        choices=["apply", "destroy", "graph", "show"],
+        choices=["apply", "destroy", "graph", "show", "plan"],
     )
     ap.add_argument(
         "--stack",
@@ -160,7 +160,7 @@ if __name__ == "__main__":
             print(f"  {src} -> {dst}")
     if command == "graph":
         show_graph(stack_edges)
-    if command in ("apply", "destroy"):
+    if command in ("apply", "destroy", "plan"):
         workspace = args.workspace
         root = deployment.root
         tagsopt = ""
@@ -181,7 +181,9 @@ if __name__ == "__main__":
         )
         if command == "apply":
             run(f"{tm_run} -- terraform apply {autoa}", cwd=root)
-        else:
+        if command == "plan":
+            run(f"{tm_run} -- terraform plan", cwd=root)
+        if command == "destroy":
             run(f"{tm_run} --reverse -- terraform destroy {autoa}", cwd=root)
    
     
