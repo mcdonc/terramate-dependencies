@@ -18,7 +18,6 @@ generate_hcl "dependencies.tf" {
         config = {
           bucket  = global.backend
           key = "terraform/states/by-id/${global.available_dependencies[stack.value]}/terraform.tfstate"
-          #key = tm_ternary(let.dependencies[stack.value] == true || let.dependencies[stack.value] == "default",  "terraform/states/by-id/${global.available_dependencies[stack.value]}/terraform.tfstate", "env:/${terraform.workspace}/terraform/states/by-id/${global.available_dependencies[stack.value]}/terraform.tfstate")
           region  = global.terraform.backend.s3.region
           encrypt = true
         }
