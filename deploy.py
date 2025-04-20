@@ -64,7 +64,7 @@ class Deployment:
                 flattened.add(src)
             flattened.add(dst)
         return flattened
-    
+
     def find_edges(self, target_tags):
         if not target_tags:
             target_tags = set(self.stack_map.keys())
@@ -133,8 +133,8 @@ class Deployment:
             print("Final Dependencies")
             for dep in sorted(final_deps):
                 print(f"  {dep}")
-            
-                
+
+
         if command == "graph":
             show_graph(raw_edges, omits)
         if command in ("apply", "destroy", "plan"):
@@ -178,6 +178,10 @@ def show_graph(edges, omits):
 
     dot = graphviz.Digraph()
     for src, dst in edges:
+        if src in omits:
+            dot.node(src, src, color="red")
+        else:
+            dot.node(dst, dst, color="green")
         dot.edge(src, dst)
     dot.render("infra-graph", format="png", view=True)
 
