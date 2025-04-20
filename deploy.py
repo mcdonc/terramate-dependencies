@@ -115,7 +115,7 @@ if __name__ == "__main__":
 
     ap.add_argument(
         "command",
-        choices=["apply", "destroy", "graph", "show", "plan"],
+        choices=["apply", "destroy", "graph", "showdeps", "plan"],
     )
     ap.add_argument(
         "--stack",
@@ -151,7 +151,7 @@ if __name__ == "__main__":
         omits = [ f"stack.{stack}" for stack in omits ]
     stack_deps, stack_edges = deployment.find_dependencies(stacks, omits)
     command = args.command
-    if command == "show":
+    if command == "showdeps":
         print("Dependencies")
         for dep in sorted(stack_deps):
             print(f"  {dep}")
