@@ -65,7 +65,7 @@ class Deployment:
             flattened.add(dst)
         return flattened
     
-    def find_edges(self, target_tags, prune_tags=()):
+    def find_edges(self, target_tags):
         if not target_tags:
             target_tags = set(self.stack_map.keys())
         else:
@@ -85,8 +85,6 @@ class Deployment:
 
             for after_tag in after_tags:
                 after_tag = after_tag[4:] # "tag:"
-                if after_tag in prune_tags:
-                    continue
                 edges.add((after_tag, stack_tag))
                 resolve_after_dependencies(after_tag)
             else:
@@ -109,12 +107,6 @@ class Deployment:
         else:
             stacks = [ f"stack.{stack}" for stack in stacks ]
 
-        prunes = None # disabled, gives wrong results currently
-        if prunes is None:
-            prunes = ()
-        else:
-            prunes = [ f"stack.{stack}" for stack in prunes ]
-
         omits = args.omit
         if omits is None:
             omits = set()
@@ -124,20 +116,7 @@ class Deployment:
         raw_edges = self.find_edges(stacks)
         raw_deps = self.flatten_edges(raw_edges)
 
-        if prunes:
-            prune_edges = self.find_edges(prunes)
-            prune_deps = self.flatten_edges(prune_edges)
-        else:
-            prune_edges = ()
-            prune_deps = ()
-
-        filtered_edges = self.find_edges(stacks, prune_deps)
-        filtered_deps = self.flatten_edges(filtered_edges)
-
-        pruned_edges = filtered_edges.difference(prune_edges)
-        pruned_deps = self.flatten_edges(pruned_edges)
-
-        final_deps = pruned_deps.difference(omits)
+        final_deps = raw_deps.difference(omits)
 
         command = args.command
 
@@ -148,24 +127,6 @@ class Deployment:
             print("Raw Dependencies")
             for dep in sorted(raw_deps):
                 print(f"  {dep}")
-            print("Prune Edges")
-            for src, dst in sorted(prune_edges):
-                print(f"  {src} -> {dst}")
-            print("Prune Dependencies")
-            for dep in sorted(prune_deps):
-                print(f"  {dep}")
-            print("Filtered Edges")
-            for src, dst in sorted(filtered_edges):
-                print(f"  {src} -> {dst}")
-            print("Filtered Dependencies")
-            for dep in sorted(filtered_deps):
-                print(f"  {dep}")
-            print("Pruned Edges")
-            for src, dst in sorted(pruned_edges):
-                print(f"  {src} -> {dst}")
-            print("Pruned Dependencies")
-            for dep in sorted(pruned_deps):
-                print(f"  {dep}")
             print("Omits")
             for dep in sorted(omits):
                 print(f"  {dep}")
@@ -175,7 +136,7 @@ class Deployment:
             
                 
         if command == "graph":
-            show_graph(pruned_edges, omits)
+            show_graph(raw_edges, omits)
         if command in ("apply", "destroy", "plan"):
             workspace = args.workspace
             root = deployment.root
@@ -183,7 +144,7 @@ class Deployment:
             autoa = ""
             if args.unattended:
                 autoa="-auto-approve"
-            if filtered_deps:
+            if final_deps:
                 tagsopt = f'--tags={",".join(final_deps)}'
             trun = f"terramate run {tagsopt} -X"
 
@@ -233,13 +194,6 @@ if __name__ == "__main__":
         action="append",
         help="Specify a stack (can be used multiple times)."
         )
-    # pruning doesn't work yet
-    # ap.add_argument(
-    #     "--prune",
-    #     action="append",
-    #     help=("Prune these stacks and the stacks they depend on (can be used "
-    #           "multiple times).")
-    #     )
     ap.add_argument(
         "--omit",
         action="append",
