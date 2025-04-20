@@ -91,12 +91,20 @@ class Deployment:
 
     def show_graph(self, edges, omits):
         dot = graphviz.Digraph()
-        for src, dst in edges:
-            if src in omits:
-                dot.node(src, src, color="red")
-            else:
-                dot.node(dst, dst, color="green")
-            dot.edge(src, dst)
+        dot.node("__root__", "__root__")
+        for s, d in edges:
+            col = "green"
+            fcol = "black"
+            for node in (s, d):
+                if s == "__root__":
+                    continue
+                if node in omits:
+                    col = "red"
+                    fcol = "white"
+                dot.node(
+                    node, node, style="filled", fillcolor=col, fontcolor=fcol
+                )
+            dot.edge(s, d)
         dot.render("infra-graph", format="png", view=True)
 
     
