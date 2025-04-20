@@ -154,7 +154,7 @@ if __name__ == "__main__":
     if command == "showdeps":
         print("Dependencies")
         for dep in sorted(stack_deps):
-            print(f"  {dep}")
+            print(f"  {dep[6:]}")
         print("Edges")
         for src, dst in sorted(stack_edges):
             print(f"  {src} -> {dst}")
