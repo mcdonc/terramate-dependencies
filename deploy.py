@@ -105,6 +105,7 @@ class Deployment:
                     node, node, style="filled", fillcolor=col, fontcolor=fcol
                 )
             dot.edge(s, d)
+        os.chdir(self.get_project_root()) # dont write files everywhere
         dot.render("infra-graph", format="png", view=True)
 
     
