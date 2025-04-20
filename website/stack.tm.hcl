@@ -1,8 +1,8 @@
 stack {
-  name        = "ec2-jack"
-  description = "ec2-jack"
+  name        = "website"
+  description = "website"
   id          = "f5f1711a-f854-439b-a0f9-d08a2e4d7f71"
-  tags = [ "stack.ec2-jack" ]
+  tags = [ "stack.website" ]
   after = [ "tag:stack.vpc" ]
 }
 
