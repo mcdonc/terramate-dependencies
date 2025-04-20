@@ -101,10 +101,11 @@ class Deployment:
                 if node in omits:
                     col = "red"
                     fcol = "white"
-                dot.node(
-                    node, node, style="filled", fillcolor=col, fontcolor=fcol
-                )
-            dot.edge(s, d)
+                n = node[6:] # "stack."
+                dot.node(n, n, style="filled", fillcolor=col, fontcolor=fcol)
+            if s != "__root__":
+                s = s[6:] # "stack."
+            dot.edge(s, d[6:])
         os.chdir(self.get_project_root()) # dont write files everywhere
         dot.render("infra-graph", format="png", view=True)
 
