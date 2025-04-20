@@ -5,7 +5,7 @@ resource "aws_vpc" "example_vpc" {
   enable_dns_hostnames = true
 
   tags = {
-    Name = "example-vpc"
+    Name = "example-vpc-${terraform.workspace}"
   }
 }
 
@@ -17,7 +17,7 @@ resource "aws_subnet" "example_subnet" {
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "example-subnet"
+    Name = "example-subnet-${terraform.workspace}"
   }
 }
 
@@ -26,7 +26,7 @@ resource "aws_internet_gateway" "example_igw" {
   vpc_id = aws_vpc.example_vpc.id
 
   tags = {
-    Name = "example-igw"
+    Name = "example-igw-${terraform.workspace}"
   }
 }
 
@@ -40,7 +40,7 @@ resource "aws_route_table" "example_route_table" {
   }
 
   tags = {
-    Name = "example-route-table"
+    Name = "example-route-table-${terraform.workspace}"
   }
 }
 
