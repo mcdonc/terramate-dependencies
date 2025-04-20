@@ -4,21 +4,8 @@ import os
 import pathlib
 import subprocess
 
+import graphviz
 import hcl2
-
-def run(command, **runargs):
-    kwargs = dict(shell=True, check=True, text=True)
-    kwargs.update(runargs)
-    result = subprocess.run(command, **kwargs)
-    return result
-
-def find_directory_upwards(dirname, start_dir=None):
-    current_path = pathlib.Path(start_dir or pathlib.Path.cwd())
-
-    for parent in [current_path] + list(current_path.parents):
-        potential_dir = parent / dirname
-        if potential_dir.is_dir():
-            return potential_dir
 
 class Deployment:
     def __init__(self):
@@ -83,10 +70,11 @@ class Deployment:
                 tag for tag in stack.get("after", []) if tag.startswith("tag:")
             ]
 
-            for after_tag in after_tags:
-                after_tag = after_tag[4:] # "tag:"
-                edges.add((after_tag, stack_tag))
-                resolve_after_dependencies(after_tag)
+            if after_tags:
+                for after_tag in after_tags:
+                    after_tag = after_tag[4:] # "tag:"
+                    edges.add((after_tag, stack_tag))
+                    resolve_after_dependencies(after_tag)
             else:
                 edges.add(("__root__", stack_tag))
 
@@ -100,6 +88,17 @@ class Deployment:
 
         return edges
 
+    def show_graph(self, edges, omits):
+        dot = graphviz.Digraph()
+        for src, dst in edges:
+            if src in omits:
+                dot.node(src, src, color="red")
+            else:
+                dot.node(dst, dst, color="green")
+            dot.edge(src, dst)
+        dot.render("infra-graph", format="png", view=True)
+
+    
     def run(self, args):
         stacks = args.stack
         if stacks is None:
@@ -134,11 +133,15 @@ class Deployment:
             for dep in sorted(final_deps):
                 print(f"  {dep}")
 
-
         if command == "graph":
-            show_graph(raw_edges, omits)
+            self.show_graph(raw_edges, omits)
+
         if command in ("apply", "destroy", "plan"):
             workspace = args.workspace
+            print(f"using workspace {workspace}")
+            if omits:
+                print(f"omitting stacks {omits}")
+            print(f"{command}ing {final_deps}")
             root = deployment.root
             tagsopt = ""
             autoa = ""
@@ -173,17 +176,19 @@ class Deployment:
                     cwd=root
                 )
 
-def show_graph(edges, omits):
-    import graphviz
+def run(command, **runargs):
+    kwargs = dict(shell=True, check=True, text=True)
+    kwargs.update(runargs)
+    result = subprocess.run(command, **kwargs)
+    return result
 
-    dot = graphviz.Digraph()
-    for src, dst in edges:
-        if src in omits:
-            dot.node(src, src, color="red")
-        else:
-            dot.node(dst, dst, color="green")
-        dot.edge(src, dst)
-    dot.render("infra-graph", format="png", view=True)
+def find_directory_upwards(dirname, start_dir=None):
+    current_path = pathlib.Path(start_dir or pathlib.Path.cwd())
+
+    for parent in [current_path] + list(current_path.parents):
+        potential_dir = parent / dirname
+        if potential_dir.is_dir():
+            return potential_dir
 
 
 if __name__ == "__main__":
