@@ -67,16 +67,17 @@ class Deployment:
             stack = self.stack_map[stack_tag]
 
             after_tags = [
-                tag for tag in stack.get("after", []) if tag.startswith("tag:")
+                tag for tag in stack.get("after", []) if
+                tag.startswith("tag:stack.")
             ]
 
-            if after_tags:
-                for after_tag in after_tags:
-                    after_tag = after_tag[4:] # "tag:"
-                    edges.add((after_tag, stack_tag))
-                    resolve_after_dependencies(after_tag)
-            else:
+            if not after_tags:
                 edges.add(("__root__", stack_tag))
+
+            for after_tag in after_tags:
+                after_tag = after_tag[4:] # "tag:"
+                edges.add((after_tag, stack_tag))
+                resolve_after_dependencies(after_tag)
 
         for target_tag in target_tags:
             resolve_after_dependencies(target_tag)
