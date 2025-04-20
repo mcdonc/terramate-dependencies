@@ -91,9 +91,9 @@ class Deployment:
             for before_tag in stack.get("before", []):
                 if before_tag.startswith("tag:"):
                     before_tag = before_tag[4:]
+                    if before_tag in omit_tags:
+                        continue
                     if before_tag in dependencies:
-                        if before_tag in omit_tags:
-                            continue
                         dependencies.add(stack_tag)
                         resolve_after_dependencies(stack_tag)
                         edges.add((stack_tag[6:], before_tag[6:]))
@@ -115,7 +115,7 @@ if __name__ == "__main__":
 
     ap.add_argument(
         "command",
-        choices=["apply", "destroy", "graph"],
+        choices=["apply", "destroy", "graph", "show"],
     )
     ap.add_argument(
         "--stack",
@@ -150,15 +150,15 @@ if __name__ == "__main__":
     else:
         omits = [ f"stack.{stack}" for stack in omits ]
     stack_deps, stack_edges = deployment.find_dependencies(stacks, omits)
-    print(f"deploying {stack_deps}")
     command = args.command
-    if command == "graph":
-        print("All Dependencies")
+    if command == "show":
+        print("Dependencies")
         for dep in sorted(stack_deps):
             print(f"  {dep}")
         print("Edges")
         for src, dst in sorted(stack_edges):
             print(f"  {src} -> {dst}")
+    if command == "graph":
         show_graph(stack_edges)
     if command in ("apply", "destroy"):
         workspace = args.workspace
