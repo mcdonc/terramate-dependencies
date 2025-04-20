@@ -1,4 +1,3 @@
-# Security group for the EC2 instance
 resource "aws_security_group" "example_sg" {
   vpc_id = data.terraform_remote_state.vpc.outputs.vpc_id
   tags = {
@@ -9,7 +8,7 @@ resource "aws_security_group" "example_sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # Allows SSH from anywhere (use carefully)
+    cidr_blocks = ["0.0.0.0/0"] # Allows SSH from anywhere
   }
 
   ingress {
@@ -28,25 +27,13 @@ resource "aws_security_group" "example_sg" {
 
 }
 
-# Key pair for SSH access
-resource "aws_key_pair" "example_key_pair" {
-  key_name   = "example-key-pair-${terraform.workspace}"
-  public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOLXUsGqUIEMfcXoIiiItmGNqOucJjx5D6ZEE3KgLKYV ednesia"
-  tags = {
-    Name = "example-key-pair-${terraform.workspace}"
-  }
-}
-
-# Create the EC2 instance
 resource "aws_instance" "example_instance" {
-  ami           = "ami-0c02fb55956c7d316" # Amazon Linux 2 AMI (Change based on your region)
+  ami           = "ami-0c02fb55956c7d316"
   instance_type = "t2.micro"
   subnet_id     = data.terraform_remote_state.vpc.outputs.vpc_subnet
   security_groups = [
     aws_security_group.example_sg.id
   ]
-
-  key_name = aws_key_pair.example_key_pair.key_name
 
   tags = {
     Name = "example-ec2-instance-${terraform.workspace}"
