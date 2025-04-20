@@ -53,11 +53,6 @@ class Deployment:
         return flattened
 
     def find_edges(self, target_tags):
-        if not target_tags:
-            target_tags = set(self.stack_map.keys())
-        else:
-            target_tags = set(target_tags)
-
         edges = set()
 
         def resolve_after_dependencies(stack_tag):
@@ -112,8 +107,8 @@ class Deployment:
     
     def run(self, args):
         stacks = args.stack
-        if stacks is None:
-            stacks = ()
+        if not stacks:
+            stacks = set(self.stack_map.keys())
         else:
             stacks = [ f"stack.{stack}" for stack in stacks ]
 
@@ -123,10 +118,21 @@ class Deployment:
         else:
             omits = set([ f"stack.{stack}" for stack in omits ])
 
+        prunes = args.prune
+        if prunes is None:
+            prunes = set()
+        else:
+            prunes = set([ f"stack.{stack}" for stack in prunes ])
+
         raw_edges = self.find_edges(stacks)
         raw_deps = self.flatten_edges(raw_edges)
 
-        final_deps = raw_deps.difference(omits)
+        prune_edges = self.find_edges(prunes)
+        prune_deps = self.flatten_edges(prune_edges)
+
+        unomitted_edges = raw_edges.difference(prune_edges)
+        unomitted_deps = self.flatten_edges(unomitted_edges)
+        final_deps = unomitted_deps.difference(omits)
 
         command = args.command
 
@@ -137,15 +143,27 @@ class Deployment:
             print("Raw Dependencies")
             for dep in sorted(raw_deps):
                 print(f"  {dep}")
+            print("Prune Edges")
+            for src, dst in sorted(prune_edges):
+                print(f"  {src} -> {dst}")
+            print("Prune Dependencies")
+            for dep in sorted(prune_deps):
+                print(f"  {dep}")
             print("Omits")
             for dep in sorted(omits):
                 print(f"  {dep}")
-            print("Final Dependencies")
+            print("Unomitted Edges")
+            for src, dst in sorted(unomitted_edges):
+                print(f"  {src} -> {dst}")
+            print("Unomitted Deps")
+            for dep in sorted(unomitted_deps):
+                print(f"  {dep}")
+            print("Final Deps")
             for dep in sorted(final_deps):
                 print(f"  {dep}")
 
         if command == "graph":
-            self.show_graph(raw_edges, omits)
+            self.show_graph(unomitted_edges, omits)
 
         if command in ("apply", "destroy", "plan"):
             workspace = args.workspace
@@ -213,6 +231,12 @@ if __name__ == "__main__":
         "--stack",
         action="append",
         help="Specify a stack (can be used multiple times)."
+        )
+    ap.add_argument(
+        "--prune",
+        action="append",
+        help=("Omit these stacks and the stacks they depend on (can be used "
+              "multiple times).")
         )
     ap.add_argument(
         "--omit",
