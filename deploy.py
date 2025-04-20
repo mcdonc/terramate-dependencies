@@ -117,7 +117,7 @@ if __name__ == "__main__":
         )
     ap.add_argument(
         "--workspace",
-        help="Specify a depoyment workspace",
+        help="Specify a deployment workspace",
         default="default"
         )
     args = ap.parse_args()
