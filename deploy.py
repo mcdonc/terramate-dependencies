@@ -253,24 +253,25 @@ if __name__ == "__main__":
 
     ap.add_argument(
         "command",
-        choices=["apply", "destroy", "graph", "debug", "plan"],
+        choices=["apply", "destroy", "plan", "graph", "debug"],
+        help="Deploy/teardown or graph a stack and its dependencies"
     )
     ap.add_argument(
         "--stack",
         action="append",
-        help="Specify a stack (can be used multiple times)."
+        help="Specify a stack (may be used multiple times)."
         )
     ap.add_argument(
         "--prune",
         action="append",
-        help=("Omit these stacks and dependent stacks "
-              "(can be used multiple times).")
+        help=("Omit this stack and any dependent stacks "
+              "(may be used multiple times).")
         )
     ap.add_argument(
         "--omit",
         action="append",
-        help=("Omit these stacks, but not dependent stacks "
-              "(can be used multiple times).")
+        help=("Omit this stack, but not any of its dependent stacks "
+              "(may be used multiple times).")
         )
     ap.add_argument(
         "--unattended",
