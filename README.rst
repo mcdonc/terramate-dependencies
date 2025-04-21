@@ -126,9 +126,10 @@ This is equivalent to using ``terrmate run --reverse -X -- terraform destroy``.
 We can also omit nodes in the graph using ``deploy.py``.
 
 ``deploy.py apply --omit=dynamodb`` will run the terraform for each node in the
-entire graph except ``dynamodb``.  ``deploy.py
-apply --omit-=dynamodb --omit=queue`` will omit both ``dynamodb`` and
-``queue``.
+entire graph except ``dynamodb``.
+
+``deploy.py apply --omit-=dynamodb --omit=queue`` will omit both ``dynamodb``
+and ``queue``.
 
 We can use ``deploy.py graph --omit=dynamodb --omit=queue`` to see what will
 happen when we try to deploy.
@@ -138,17 +139,19 @@ happen when we try to deploy.
 The nodes in the graph that are red will not be deployed.
 
 We can also prune a part of the graph out.  For example, if we don't want to
-deploy ``dynamodb`` or anything that depends on it, can use ``deploy.py
-apply --prune=dynamodb``.  We can see what will happen before we try that by
-using ``deploy.py graph --prune=dynamodb``.  Because we pruned out everything
-in the stack that depends on ``dynamodb``(and ``dynamodb`` itself), we are left
-with a graph consisting of only ``vpc`` and ``website``.
+deploy ``dynamodb`` or anything that depends on it, can use
+``deploy.py apply --prune=dynamodb``.
+
+We can see what will happen before we try that by using
+``deploy.py graph --prune=dynamodb``.  Because we pruned out everything
+in the stack that depends on ``dynamodb`` (and ``dynamodb`` itself), we are
+left with a graph consisting of only ``vpc`` and ``website``.
 
 .. image:: images/3.png
 
 We can specify nodes in the graph from which a deployment should start by using
-the ``--stack`` option.  Here is the result of ``deploy.py
-graph --stack=mail``.
+the ``--stack`` option.  Here is the result of
+``deploy.py graph --stack=mail``.
 
 .. image:: images/4.png
 
