@@ -14,7 +14,10 @@ generate_hcl "dependencies.tf" {
 
       content {
         backend = "s3"
-        workspace = tm_ternary(let.dependencies[stack.value] != null, let.dependencies[stack.value], tm_hcl_expression("terraform.workspace"))
+        # the tm_can/tm_length thing is attempting to determine if the
+        # stack value is a string, otherwise it's expected to be null/false/true
+        # each of which means "use the current workspace"
+        workspace = tm_ternary(tm_can(tm_length(let.dependencies[stack.value])), let.dependencies[stack.value], tm_hcl_expression("terraform.workspace"))
         config = {
           bucket  = global.backend
           key = "terraform/states/by-id/${global.available_dependencies[stack.value]}/terraform.tfstate"

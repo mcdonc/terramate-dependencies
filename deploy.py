@@ -8,7 +8,14 @@ import graphviz # graphviz package
 import hcl2 # python-hcl2 package
 
 class Deployment:
-    def __init__(self):
+    def __init__(self, args):
+        self.args = args
+
+        omit = self.args.omit
+        if omit is None:
+            omit = ()
+        self.args.omit = set(omit)
+
         stacks = []
         self.root = root = self.get_project_root()
 
@@ -32,10 +39,17 @@ class Deployment:
         stack_map = {}
         for stack in stacks:
             tags = set(stack.get("tags", []))
+            stack_name = None
             for tag in tags:
                 if tag.startswith("stack."):
+                    stack_name = tag[6:]
                     stack_map[tag] = stack
-
+            if stack_name:
+                for tag in tags:
+                    if tag.startswith("workspace."):
+                        if tag[len("workspace."):] != self.args.workspace:
+                            self.args.omit.add(stack_name)
+                            print(f"Omitting {stack_name}: foreign ws {tag}")
         self.stack_map = stack_map
 
     def get_project_root(self):
@@ -102,7 +116,8 @@ class Deployment:
 
         return edges
 
-    def run(self, args):
+    def run(self):
+        args = self.args
         stacks = args.stack
         if not stacks:
             stacks = set(self.stack_map.keys())
@@ -267,5 +282,5 @@ if __name__ == "__main__":
         default="default"
         )
     args = ap.parse_args()
-    deployment = Deployment()
-    deployment.run(args)
+    deployment = Deployment(args)
+    deployment.run()
