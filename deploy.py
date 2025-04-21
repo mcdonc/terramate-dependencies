@@ -4,8 +4,8 @@ import os
 import pathlib
 import subprocess
 
-import graphviz
-import hcl2
+import graphviz # graphviz package
+import hcl2 # python-hcl2 package
 
 class Deployment:
     def __init__(self):
