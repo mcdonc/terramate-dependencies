@@ -52,8 +52,18 @@ class Deployment:
             flattened.add(dst)
         return flattened
 
-    def find_edges(self, target_tags):
+    def find_edges(self, target_tags, prunes=None):
+        if prunes is None:
+            prunes = set()
+        else:
+            prunes = set(prunes)
+
         edges = set()
+
+        for stack_tag, stack in self.stack_map.items():
+            for before_tag in stack.get("before", []):
+                if before_tag.startswith("tag:stack."):
+                    raise ValueError(f"before tags unsupported: {stack_tag}")
 
         def resolve_after_dependencies(stack_tag):
             if not stack_tag in self.stack_map:
@@ -77,40 +87,27 @@ class Deployment:
         for target_tag in target_tags:
             resolve_after_dependencies(target_tag)
 
-        for stack_tag, stack in self.stack_map.items():
-            for before_tag in stack.get("before", []):
-                if before_tag.startswith("tag:"):
-                    raise ValueError(f"before tags unsupported: {stack_tag}")
+        def find_dependents(edges, start):
+            for src, dst in edges:
+                if src == start:
+                    prunes.add(dst)
+                    find_dependents(edges, dst)
+
+        for prune in set(prunes):
+            find_dependents(edges, prune)
+
+        for src, dst in set(edges):
+            if dst in prunes:
+                edges.remove((src, dst))
 
         return edges
 
-    def show_graph(self, edges, omits):
-        dot = graphviz.Digraph()
-        dot.node("__root__", "__root__")
-        for s, d in edges:
-            col = "green"
-            fcol = "black"
-            for node in (s, d):
-                if s == "__root__":
-                    continue
-                if node in omits:
-                    col = "red"
-                    fcol = "white"
-                n = node[6:] # "stack."
-                dot.node(n, n, style="filled", fillcolor=col, fontcolor=fcol)
-            if s != "__root__":
-                s = s[6:] # "stack."
-            dot.edge(s, d[6:])
-        os.chdir(self.get_project_root()) # dont write files everywhere
-        dot.render("infra-graph", format="png", view=True)
-
-    
     def run(self, args):
         stacks = args.stack
         if not stacks:
             stacks = set(self.stack_map.keys())
         else:
-            stacks = [ f"stack.{stack}" for stack in stacks ]
+            stacks = set([ f"stack.{stack}" for stack in stacks ])
 
         omits = args.omit
         if omits is None:
@@ -127,12 +124,10 @@ class Deployment:
         raw_edges = self.find_edges(stacks)
         raw_deps = self.flatten_edges(raw_edges)
 
-        prune_edges = self.find_edges(prunes)
-        prune_deps = self.flatten_edges(prune_edges)
+        pruned_edges = self.find_edges(stacks, prunes)
+        pruned_deps = self.flatten_edges(pruned_edges)
 
-        unomitted_edges = raw_edges.difference(prune_edges)
-        unomitted_deps = self.flatten_edges(unomitted_edges)
-        final_deps = unomitted_deps.difference(omits)
+        final_deps = pruned_deps.difference(omits)
 
         command = args.command
 
@@ -143,27 +138,21 @@ class Deployment:
             print("Raw Dependencies")
             for dep in sorted(raw_deps):
                 print(f"  {dep}")
-            print("Prune Edges")
-            for src, dst in sorted(prune_edges):
+            print("Pruned Edges")
+            for src, dst in sorted(pruned_edges):
                 print(f"  {src} -> {dst}")
-            print("Prune Dependencies")
-            for dep in sorted(prune_deps):
+            print("Pruned Dependencies")
+            for dep in sorted(pruned_deps):
                 print(f"  {dep}")
             print("Omits")
             for dep in sorted(omits):
                 print(f"  {dep}")
-            print("Unomitted Edges")
-            for src, dst in sorted(unomitted_edges):
-                print(f"  {src} -> {dst}")
-            print("Unomitted Deps")
-            for dep in sorted(unomitted_deps):
-                print(f"  {dep}")
-            print("Final Deps")
+            print("Final Dependencies")
             for dep in sorted(final_deps):
                 print(f"  {dep}")
 
         if command == "graph":
-            self.show_graph(unomitted_edges, omits)
+            self.show_graph(pruned_edges, omits)
 
         if command in ("apply", "destroy", "plan"):
             workspace = args.workspace
@@ -205,6 +194,26 @@ class Deployment:
                     cwd=root
                 )
 
+    def show_graph(self, edges, omits):
+        dot = graphviz.Digraph()
+        dot.node("__root__", "__root__")
+        for s, d in edges:
+            col = "green"
+            fcol = "black"
+            for node in (s, d):
+                if s == "__root__":
+                    continue
+                if node in omits:
+                    col = "red"
+                    fcol = "white"
+                n = node[6:] # "stack."
+                dot.node(n, n, style="filled", fillcolor=col, fontcolor=fcol)
+            if s != "__root__":
+                s = s[6:] # "stack."
+            dot.edge(s, d[6:])
+        os.chdir(self.get_project_root()) # dont write files everywhere
+        dot.render("infra-graph", format="png", view=True)
+
 def run(command, **runargs):
     kwargs = dict(shell=True, check=True, text=True)
     kwargs.update(runargs)
@@ -235,14 +244,14 @@ if __name__ == "__main__":
     ap.add_argument(
         "--prune",
         action="append",
-        help=("Omit these stacks and the stacks they depend on (can be used "
-              "multiple times).")
+        help=("Omit these stacks and dependent stacks "
+              "(can be used multiple times).")
         )
     ap.add_argument(
         "--omit",
         action="append",
-        help=("Omit these stacks, but not stacks they depend on (can be used "
-              "multiple times).")
+        help=("Omit these stacks, but not dependent stacks "
+              "(can be used multiple times).")
         )
     ap.add_argument(
         "--unattended",
