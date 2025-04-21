@@ -147,8 +147,7 @@ with a graph consisting of only ``vpc`` and ``website``.
 .. image:: images/3.png
 
 We can specify nodes in the graph from which a deployment should start by using
-the ``--stack`` option.  Here is the result of ``fxdevenv-cmd-python
-/home/chrism/projects/fornax/terramate-dependencies/deploy.py
+the ``--stack`` option.  Here is the result of ``deploy.py
 graph --stack=mail``.
 
 .. image:: images/4.png
