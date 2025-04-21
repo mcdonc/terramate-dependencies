@@ -14,6 +14,7 @@ class Deployment:
         omit = self.args.omit
         if omit is None:
             omit = ()
+
         self.args.omit = set(omit)
 
         stacks = []

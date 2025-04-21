@@ -7,5 +7,5 @@ stack {
 }
 
 globals "dependencies" {
-  dynamodb = "dev"
+  dynamodb = "global"
 }

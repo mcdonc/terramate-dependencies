@@ -1,7 +1,7 @@
 resource "aws_security_group" "example_sg" {
   vpc_id = data.terraform_remote_state.vpc.outputs.vpc_id
   tags = {
-    Name = "mail-${terraform.workspace}"
+    Name = "website-${terraform.workspace}"
   }
 
   ingress {
@@ -36,7 +36,7 @@ resource "aws_instance" "example_instance" {
   ]
 
   tags = {
-    Name = "mail-instance-${terraform.workspace}"
+    Name = "website-instance-${terraform.workspace}"
   }
 }
 
