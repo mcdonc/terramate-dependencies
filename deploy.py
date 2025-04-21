@@ -102,14 +102,14 @@ class Deployment:
         for target_tag in target_tags:
             resolve_after_dependencies(target_tag)
 
-        def find_dependents(edges, start):
+        def add_dependents_to_prune(edges, start):
             for src, dst in edges:
                 if src == start:
                     prunes.add(dst)
-                    find_dependents(edges, dst)
+                    add_dependents_to_prune(edges, dst)
 
         for prune in set(prunes):
-            find_dependents(edges, prune)
+            add_dependents_to_prune(edges, prune)
 
         for src, dst in set(edges):
             if dst in prunes:
