@@ -195,7 +195,7 @@ class Deployment:
 
         tagsopt = ""
         autoa = ""
-        if data["unattended"]:
+        if data["unattended"] and command in ("apply", "destroy"):
             autoa="-auto-approve"
         if final_deps:
             tagsopt = f'--tags={",".join(final_deps)}'
@@ -215,11 +215,11 @@ class Deployment:
             cwd=project_root
         )
         run(
-            f"{trun} -- terraform init",
+            f"{trun} --parallel 10 -- terraform init",
             cwd=project_root
         )
         run(
-            f"{trun} -- terraform workspace select -or-create {workspace}",
+            f"{trun} --parallel 10 -- terraform workspace select -or-create {workspace}",
             cwd=project_root
         )
         run(
