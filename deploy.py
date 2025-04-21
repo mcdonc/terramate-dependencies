@@ -137,9 +137,6 @@ class Deployment:
         else:
             prunes = set([ f"stack.{stack}" for stack in prunes ])
 
-        raw_edges = self.find_edges(stacks)
-        raw_deps = self.flatten_edges(raw_edges)
-
         pruned_edges = self.find_edges(stacks, prunes)
         pruned_deps = self.flatten_edges(pruned_edges)
 
@@ -148,6 +145,9 @@ class Deployment:
         command = args.command
 
         if command == "debug":
+            raw_edges = self.find_edges(stacks)
+            raw_deps = self.flatten_edges(raw_edges)
+
             print("Raw Edges")
             for src, dst in sorted(raw_edges):
                 print(f"  {src} -> {dst}")
