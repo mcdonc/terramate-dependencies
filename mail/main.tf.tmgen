@@ -2,7 +2,6 @@ resource "aws_security_group" "example_sg" {
   vpc_id = data.terraform_remote_state.vpc.outputs.vpc_id
   tags = {
     Name = "sg-mail-${terraform.workspace}"
-    dynamodb_table = data.terraform_remote_state.dynamodb.outputs.mail_table
   }
 
   ingress {
@@ -38,5 +37,6 @@ resource "aws_instance" "example_instance" {
 
   tags = {
     Name = "mail-instance-${terraform.workspace}"
+    queue_table = data.terraform_remote_state.queue.outputs.queue_table
   }
 }

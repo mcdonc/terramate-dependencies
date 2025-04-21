@@ -170,6 +170,7 @@ class Deployment:
             trun = f"terramate run {tagsopt} -X"
 
             run("terramate generate", cwd=root)
+            run("terramate list --run-order", cwd=root)
             run(
                 f"{trun} -- terraform init",
                 cwd=root
@@ -178,6 +179,7 @@ class Deployment:
                 f"{trun} -- terraform workspace select -or-create {workspace}",
                 cwd=root
             )
+            run("terramate list --run-order", cwd=root)
             if command == "apply":
                 run(
                     f"{trun} -- terraform apply {autoa}",
@@ -215,6 +217,7 @@ class Deployment:
         dot.render("infra-graph", format="png", view=True)
 
 def run(command, **runargs):
+    print(f"Running {command}")
     kwargs = dict(shell=True, check=True, text=True)
     kwargs.update(runargs)
     result = subprocess.run(command, **kwargs)

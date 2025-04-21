@@ -6,6 +6,6 @@ stack {
   after = [ "tag:stack.dynamodb" ]
 }
 
-global "dependencies" {
-  dynamodb = true
+globals "dependencies" {
+  dynamodb = null
 }
