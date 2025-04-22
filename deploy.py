@@ -86,7 +86,8 @@ class Deployment:
             final_deps = final_deps,
             workspace = args.workspace,
             unattended = args.unattended,
-            stack_map = stack_map
+            stack_map = stack_map,
+            parallel = args.parallel
         )
 
     def get_project_root(self):
@@ -187,6 +188,8 @@ class Deployment:
         omits = data["omits"]
         final_deps = data["final_deps"]
         command = data["command"]
+        unattended = data["unattended"]
+        parallel = data["parallel"]
 
         print(f"using workspace {workspace}")
         if omits:
@@ -200,9 +203,17 @@ class Deployment:
         if final_deps:
             tagsopt = f'--tags={",".join(final_deps)}'
 
-        trun = f"terramate run {tagsopt} -X"
+        tmrun = f"terramate run {tagsopt} -X"
+        tmrun_for_init = tmrun
+        tmrun_for_deploy = tmrun
+        if parallel:
+            tmrun_for_init = f"{tmrun} --parallel {parallel}"
+            if unattended:
+                tmrun_for_deploy = tmrun_for_init
+        tf = "terraform"
+
         if command == "destroy":
-            trun = f"{trun} --reverse"
+            tmrun_for_deploy = f"{tmrun_for_deploy} --reverse"
 
         project_root = self.project_root
 
@@ -215,11 +226,12 @@ class Deployment:
             cwd=project_root
         )
         run(
-            f"{trun} --parallel 10 -- terraform init",
+            f"{tmrun_for_init} -- {tf} init",
             cwd=project_root
         )
         run(
-            f"{trun} --parallel 10 -- terraform workspace select -or-create {workspace}",
+            f"{tmrun_for_init} -- {tf} workspace select -or-create "
+            f"{workspace}",
             cwd=project_root
         )
         run(
@@ -227,7 +239,7 @@ class Deployment:
             cwd=project_root
         )
         run(
-            f"{trun} -- terraform {command} {autoa}",
+            f"{tmrun_for_deploy} -- {tf} {command} {autoa}",
             cwd=project_root
         )
 
@@ -312,7 +324,16 @@ if __name__ == "__main__":
     ap.add_argument(
         "--unattended",
         action="store_true",
-        help="Automatically approve apply or destroy, no questions asked."
+        help="Run deployment commmands without confirmation",
+        default = False,
+    )
+    ap.add_argument(
+        "--parallel",
+        type=int,
+        help=("Run terraform commands in parallel (number of parallel tasks) "
+              "when possible (disabled for apply/plan/destroy when "
+              "--unattended is false"),
+        default = 0,
     )
     ap.add_argument(
         "--workspace",
