@@ -1,0 +1,16 @@
+allowUnfree: true
+impure: true
+inputs:
+  nixpkgs:
+    url: github:cachix/devenv-nixpkgs/rolling
+  nixpkgs-python:
+    url: github:cachix/nixpkgs-python
+    inputs:
+      nixpkgs:
+        follows: nixpkgs
+  nixpkgs-unstable:
+    url: github:NixOS/nixpkgs/nixpkgs-unstable
+  nixpkgs-2411:
+    url: github:NixOS/nixpkgs/nixos-24.11
+  devenv-zsh:
+    url: github:mcdonc/devenv-zsh
