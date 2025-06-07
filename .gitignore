@@ -1,4 +1,11 @@
-*.tf
-.terraform/
-.terraform.lock.hcl
+# Devenv
+.devenv*
+devenv.local.nix
+
+# direnv
+.direnv
+
+# pre-commit
+.pre-commit-config.yaml
+
 infra-graph*
