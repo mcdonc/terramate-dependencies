@@ -4,7 +4,7 @@ Partial-DAG Deployment and Visualization for Terramate/Terraform
 This is an example project that uses five stacks: ``vpc``, ``website``,
 ``dynamodb``, ``mail``, and ``queue``.  The stacks themselves do uninteresting
 things.  But they have dependencies on each other that are specified via
-Terramate's ``after`` speficier.  This controls its run ordering.
+Terramate's ``after`` specifier.  This controls its run ordering.
 
 The tags of a stack's dependencies are specified in the ``after`` specifier
 within that stack's ``stack.tm.hcl``.  For example. the ``website`` stack's
@@ -137,9 +137,15 @@ the ``--stack`` option.  Here is the result of
 
 Note that only ``mail`` and its dependencies are considered.
 
-We can combine --stack, --omit, and --prune options to deploy only the pieces
-of the graph that are relevant to what we're trying to do.  When using
-``apply`` or ``destroy``, they will always be run in the correct order.
+We can inform the deployment to omit any of the dependencies of named stacks
+via the ``--nodeps`` option.  For example::
+
+  deploy.py apply --stack=mail --stack-dynamodb --nodeps
+
+We can combine ``--stack``, ``--omit``, ``--prune`` and ``--nodeps`` options to
+deploy only the pieces of the graph that are relevant to what we're trying to
+do.  When using ``apply`` or ``destroy``, they will always be run in the
+correct order.
 
 We can use the ``--workspace`` option to specify the workspace in which the
 stacks will be run.  For example, ``deploy.py apply --workspace=donjohnson``
