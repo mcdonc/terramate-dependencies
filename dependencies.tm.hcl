@@ -24,16 +24,19 @@ generate_hcl "dependencies.tf" {
           region  = global.terraform.backend.s3.region
           encrypt = true
         }
-
-        depends_on = [
-          null_resource.initial_deployment_trigger
-        ]
       }
     }
 
-    resource "null_resource" "initial_deployment_trigger" {}
-  }
+    tm_dynamic "resource" {
+      for_each = let.dependencies
+      labels   = ["null_resource", "retrieve-${remote.value}-remote-state"]
+      iterator = remote
+      content {
+        depends_on = [ tm_hcl_expression("data.terraform_remote_state.${remote.value}") ]
+      }
+    }
 
+  }
 
   # General backend configuration checks
   assert {

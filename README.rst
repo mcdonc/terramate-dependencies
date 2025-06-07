@@ -1,15 +1,13 @@
-PoC: Partial-DAG Deployment and Visualization for Terramate/Terraform
-=====================================================================
+Partial-DAG Deployment and Visualization for Terramate/Terraform
+================================================================
 
 This is an example project that uses five stacks: ``vpc``, ``website``,
 ``dynamodb``, ``mail``, and ``queue``.  The stacks themselves do uninteresting
 things.  But they have dependencies on each other that are specified via
 Terramate's ``after`` speficier.  This controls its run ordering.
 
-Another convention is used: each stack that wants to participate in this system
-has a tag that starts with ``stack.`` e.g. ``stack.mail`` or ``stack.vpc``.
-These are the tags that are specified in the ``after`` specifier within a given
-stack's ``stack.tm.hcl``.  For example. the ``website`` stack's
+The tags of a stack's dependencies are specified in the ``after`` specifier
+within that stack's ``stack.tm.hcl``.  For example. the ``website`` stack's
 ``stack.tm.hcl`` might have a ``stack`` block that looks like this:
 
 .. code-block:: hcl
@@ -18,8 +16,8 @@ stack's ``stack.tm.hcl``.  For example. the ``website`` stack's
        name        = "website"
        description = "website"
        id          = "f5f1711a-f854-439b-a0f9-d08a2e4d7f71"
-       tags = [ "stack.website" ]
-       after = [ "tag:stack.vpc" ]
+       tags = [ "website" ]
+       after = [ "tag:vpc" ]
      }
 
 And the ``vpc`` stack's ``stack.tm.hcl`` might look like this:
@@ -30,7 +28,7 @@ And the ``vpc`` stack's ``stack.tm.hcl`` might look like this:
        name        = "vpc"
        description = "vpc"
        id          = "daadbae0-240b-4cea-ba23-5b79ba080751"
-       tags = [ "stack.vpc" ]
+       tags = [ "vpc" ]
      }
 
 We use tags to specify dependency ordering because directory nesting is often
@@ -44,7 +42,7 @@ a ``global`` stanza in each dependent stack's ``stack.tm.hcl``.  For example,
 in ``website/stack.tm.hcl``:
 
 .. code-block:: hcl
-   
+
     globals "dependencies" {
       vpc = null
     }
@@ -67,12 +65,13 @@ something like:
          key     = "terraform/states/by-id/daadbae0-240b-4cea-ba23-5b79ba080751/terraform.tfstate"
          region  = "us-east-1"
        }
-       depends_on = [
-         null_resource.initial_deployment_trigger,
-       ]
        workspace = terraform.workspace
      }
-     resource "null_resource" "initial_deployment_trigger" {
+
+     resource "null_resource" "retrieve-vpc-remote-state" {
+       depends_on = [
+         data.terraform_remote_state.vpc,
+       ]
      }
 
 The ``workspace`` value depends on the value of the ``vpc`` dependencies
@@ -81,30 +80,11 @@ workspace of the remote state depedndency is set to the workspace currently in
 use at run time.  If it is a string, the remote state dependency will point at
 the workspace specified by the string.
 
-You can also specify that a stack is always deployed in a foreign workspace via
-a ``workspace.foo`` tag in its ``stack.tm.hcl`` tagslist.  This will cause it
-to be skipped in most deployment scenarios, but you can set up its dependents
-via the ``dependencies`` global and they will get deployed.  For example, this stack specifies it is in the ``global`` foreign workspace:
-
-.. code-block::
-   
-    stack {
-      name        = "dynamodb"
-      description = "dynamodb"
-      id          = "7d466f45-7030-4da2-9620-5f67e6d1f3ee"
-      tags = [ "stack.dynamodb", "workspace.global" ]
-    }
-
-These foreign-workspace features aren't much fleshed out at the moment, because
-it's hard to know what to do when you encounter a dependency in a foreign
-workspace.  Foreign workspaces probably don't make much sense unless you've
-already got a deployment that uses them.
-
 You might note that we are keeping two separate dependency graphs, one via
 ``after``, and one via the ``dependencies`` global.  The former is the run
-order, and the latter is used to create a remote_state dependency chain.  It
-might be possible to collapse them into the same thing, but I haven't yet
-figured out how best to do that.
+order, and the latter is used to create a remote_state dependency chain.
+Usually, they are the same, but if we must depend on remote state that isn't in
+another stack set, they will differ.
 
 We can use ``deploy.py graph`` to show a graph of the dependencies between the
 stacks, which implies the order the stacks must be run in:
@@ -174,5 +154,3 @@ Each of ``apply`` and ``destroy`` always:
 - Initialize each stack.
 
 - run ``terraform apply`` or ``terraform destroy`` against each stack.
-
-

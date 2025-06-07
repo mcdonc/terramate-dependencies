@@ -14,11 +14,12 @@ class Deployment:
         self.args.prune = set(self.args.prune)
         self.args.stack = set(self.args.stack)
         self.project_root = self.get_project_root()
+        self.env_root = self.get_env_root()
 
     def get_stack_map(self):
         stacks = []
 
-        def find_files(filename, search_path=self.project_root):
+        def find_files(filename, search_path=self.env_root):
             path = pathlib.Path(search_path)
             return list(path.rglob(filename))
 
@@ -26,7 +27,11 @@ class Deployment:
 
         for stackfile in results:
             with open(stackfile, "r") as f:
-                hcl_data = hcl2.load(f)
+                try:
+                    hcl_data = hcl2.load(f)
+                except Exception:
+                    print (f"In {stackfile}")
+                    raise
                 stack_data = hcl_data.get("stack")
                 if stack_data:
                     stack = stack_data[0]
@@ -37,8 +42,9 @@ class Deployment:
         for stack in stacks:
             tags = set(stack.get("tags", []))
             for tag in tags:
-                if tag.startswith("stack."):
-                    stack_map[tag] = stack
+                stack_map[tag] = stack
+                # first tag is name
+                break
 
         return stack_map
 
@@ -64,17 +70,32 @@ class Deployment:
         if not stacks:
             stacks = set(stack_map.keys())
         else:
-            stacks = set([ f"stack.{stack}" for stack in stacks ])
+            stacks = set(stacks)
 
-        omits = set([ f"stack.{stack}" for stack in omits ])
-        prunes = set([ f"stack.{stack}" for stack in prunes ])
+        omits = set(omits)
+        prunes = set(prunes)
 
-        pruned_edges = self.find_edges(stack_map, stacks, prunes)
-        pruned_deps = self.flatten_edges(pruned_edges)
+        if self.args.nodeps:
+            pruned_deps = set(stacks)
+            pruned_edges = set()
+            for stack in stacks:
+                pruned_edges.add(("__root__", stack))
+        else:
+            pruned_edges = self.find_edges(stack_map, stacks, prunes)
+            pruned_deps = self.flatten_edges(pruned_edges)
 
         final_deps = pruned_deps.difference(omits)
 
         command = args.command
+
+        var_files = []
+        cwd = os.getcwd()
+        for var_file in args.var_file:
+            if os.path.isabs(var_file):
+               var_files.append(var_file)
+            else:
+                var_files.append(os.path.join(cwd, var_file))
+
 
         return dict(
             command = command,
@@ -87,7 +108,10 @@ class Deployment:
             workspace = args.workspace,
             unattended = args.unattended,
             stack_map = stack_map,
-            parallel = args.parallel
+            parallel = args.parallel,
+            noinit = args.noinit,
+            var_files = var_files,
+            backend_bucket = args.backend_bucket
         )
 
     def get_project_root(self):
@@ -95,6 +119,10 @@ class Deployment:
         if not gitdir:
             raise ValueError(".git could not be found in parents")
         return os.path.dirname(gitdir)
+
+    def get_env_root(self):
+        project_root = self.get_project_root()
+        return os.path.abspath(os.path.join(project_root, self.args.env))
 
     def flatten_edges(self, edges):
         flattened = set()
@@ -114,7 +142,7 @@ class Deployment:
 
         for stack_tag, stack in stack_map.items():
             for before_tag in stack.get("before", []):
-                if before_tag.startswith("tag:stack."):
+                if before_tag.startswith("tag:"):
                     raise ValueError(f"before tags unsupported: {stack_tag}")
 
         def resolve_after_dependencies(stack_tag):
@@ -125,7 +153,7 @@ class Deployment:
 
             after_tags = [
                 tag for tag in stack.get("after", []) if
-                tag.startswith("tag:stack.")
+                tag.startswith("tag:")
             ]
 
             if not after_tags:
@@ -164,6 +192,9 @@ class Deployment:
         raw_edges = self.find_edges(stack_map, stacks)
         raw_deps = self.flatten_edges(raw_edges)
 
+        print("All stacks")
+        for k, v in sorted(stack_map.items()):
+            print(f"  {k} -> {v['directory'][len(self.env_root):]}")
         print("Raw Edges")
         for src, dst in sorted(raw_edges):
             print(f"  {src} -> {dst}")
@@ -190,6 +221,9 @@ class Deployment:
         command = data["command"]
         unattended = data["unattended"]
         parallel = data["parallel"]
+        noinit = data["noinit"]
+        var_files = data["var_files"]
+        backend_bucket = data["backend_bucket"]
 
         print(f"using workspace {workspace}")
         if omits:
@@ -211,59 +245,59 @@ class Deployment:
             if unattended:
                 tmrun_for_deploy = tmrun_for_init
         tf = "terraform"
+        var_files = " ".join(["-var-file=" + x for x in var_files])
+
+        backend_config = ""
+
+        if backend_bucket is not None:
+            backend_config = f"-backend-config=bucket={backend_bucket}"
+            os.environ["TF_VAR_backend"] =  backend_bucket
 
         if command == "destroy":
             tmrun_for_deploy = f"{tmrun_for_deploy} --reverse"
 
-        project_root = self.project_root
+        env_root = self.env_root
 
         run(
             "terramate generate",
-            cwd=project_root
+            cwd=env_root
         )
+        if not noinit:
+            run(
+                f"{tmrun_for_init} -- {tf} init {backend_config}",
+                cwd=env_root
+            )
+            run(
+                f"{tmrun_for_init} -- {tf} workspace select -or-create "
+                f"{workspace}",
+                cwd=env_root
+            )
         run(
-            "terramate list --run-order",
-            cwd=project_root
-        )
-        run(
-            f"{tmrun_for_init} -- {tf} init",
-            cwd=project_root
-        )
-        run(
-            f"{tmrun_for_init} -- {tf} workspace select -or-create "
-            f"{workspace}",
-            cwd=project_root
-        )
-        run(
-            "terramate list --run-order",
-            cwd=project_root
-        )
-        run(
-            f"{tmrun_for_deploy} -- {tf} {command} {autoa}",
-            cwd=project_root
+            f"{tmrun_for_deploy} -- {tf} {command} {autoa} {var_files}",
+            cwd=env_root
         )
 
     def show_graph(self, data):
         edges = data["pruned_edges"]
         omits = data["omits"]
-        project_root = self.project_root
         dot = graphviz.Digraph()
-        dot.node("__root__", "__root__")
         for s, d in edges:
             col = "green"
             fcol = "black"
             for node in (s, d):
-                if s == "__root__":
-                    continue
+                col = "green"
+                fcol = "black"
                 if node in omits:
                     col = "red"
                     fcol = "white"
-                n = node[6:] # "stack."
-                dot.node(n, n, style="filled", fillcolor=col, fontcolor=fcol)
-            if s != "__root__":
-                s = s[6:] # "stack."
-            dot.edge(s, d[6:])
-        os.chdir(project_root) # dont write files everywhere
+                if node == "__root__":
+                    col = "white"
+                    fcol = "black"
+                dot.node(
+                    node, node, style="filled", fillcolor=col, fontcolor=fcol
+                )
+            dot.edge(s, d)
+        os.chdir(self.project_root) # dont write files everywhere
         dot.render("infra-graph", format="png", view=True)
 
     def run(self):
@@ -315,6 +349,13 @@ if __name__ == "__main__":
         default = [],
     )
     ap.add_argument(
+        "--nodeps",
+        action="store_true",
+        help="Deploy only the named --stack",
+        default = False,
+    )
+
+    ap.add_argument(
         "--omit",
         action="append",
         help=("Omit this stack, but not any of its dependent stacks "
@@ -340,6 +381,31 @@ if __name__ == "__main__":
         help="Specify a deployment workspace",
         default="default"
     )
+    ap.add_argument(
+        "--env",
+        help="Specify an environment directory relative to the project root",
+        default = ""
+    )
+    ap.add_argument(
+        "--noinit",
+        help=("Skip workspace-setting and terramate init when running an apply "
+              "destroy or plan."),
+        action="store_true",
+        default=False,
+    )
+    ap.add_argument(
+        "--var-file",
+        action="append",
+        help="Use a tfvars file (may be used multiple times).",
+        default = [],
+    )
+    ap.add_argument(
+        "--backend-bucket",
+        help="The s3 bucket name to use as the Terraform backend",
+        default = None,
+    )
     args = ap.parse_args()
+    if args.nodeps and not args.stack:
+        raise RuntimeError("Cannot specify --nodeps without --stack")
     deployment = Deployment(args)
     deployment.run()
