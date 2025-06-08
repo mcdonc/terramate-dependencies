@@ -64,6 +64,7 @@ in
   env = {
     CHECKPOINT_DISABLE = "1"; # disable terraform spyware
     DISABLE_CHECKPOINT = "1"; # disable terramate spyware
+    EDITOR="emacs -nw";
   };
   
   scripts.deploy.exec = ''
