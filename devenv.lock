@@ -16,6 +16,20 @@
         "type": "github"
       }
     },
+    "devenv-awsenv": {
+      "locked": {
+        "lastModified": 1749357043,
+        "owner": "mcdonc",
+        "repo": "devenv-awsenv",
+        "rev": "0538d7036933606e186c9e153c38fb9454b5ed9e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "mcdonc",
+        "repo": "devenv-awsenv",
+        "type": "github"
+      }
+    },
     "devenv-zsh": {
       "locked": {
         "lastModified": 1747321963,
@@ -169,6 +183,7 @@
     "root": {
       "inputs": {
         "devenv": "devenv",
+        "devenv-awsenv": "devenv-awsenv",
         "devenv-zsh": "devenv-zsh",
         "git-hooks": "git-hooks",
         "nixpkgs": "nixpkgs",

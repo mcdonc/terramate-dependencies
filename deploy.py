@@ -384,7 +384,7 @@ if __name__ == "__main__":
     ap.add_argument(
         "--env",
         help="Specify an environment directory relative to the project root",
-        default = ""
+        default = "stacks"
     )
     ap.add_argument(
         "--noinit",

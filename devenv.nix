@@ -1,26 +1,13 @@
-{ pkgs, lib, config, inputs, nixpkgs-2411, nixpkgs-unstable, devenv-zsh, ... }:
+{ pkgs, lib, config, inputs, nixpkgs-unstable, devenv-zsh, devenv-awsenv, ... }:
 
 let
-  pkgs-2411 = import nixpkgs-2411 {
-    system = pkgs.stdenv.system;
-    config.allowUnfree = true;
-  };
-
   pkgs-unstable = import nixpkgs-unstable {
     system = pkgs.stdenv.system;
     config.allowUnfree = true;
   };
 
   script_python = (
-    # Use pkgs-2411 and 3.11 to download cached dependences instead of
-    # building
-    pkgs-2411.python311.withPackages (python-pkgs: [
-      python-pkgs.boto3
-      python-pkgs.kubernetes
-      python-pkgs.jupytext
-      python-pkgs.requests
-      python-pkgs.pyjwt
-      python-pkgs.cryptography
+    pkgs-unstable.python313.withPackages (python-pkgs: [
       python-pkgs.python-hcl2
       python-pkgs.graphviz
     ]
@@ -29,7 +16,30 @@ let
   scriptpyexe = "${script_python}/bin/python";
 in
 {
-  imports = [ devenv-zsh.plugin ];
+  imports = [ devenv-zsh.plugin devenv-awsenv.plugin ];
+
+  awsenv.enable = true;
+
+  languages.python = {
+    libraries = with pkgs; [
+      # numpy (pandas?), although it says it is a manylinux wheel, is not.
+      # it depends on zlib, which isn't part of any manylinux spec.  Similar
+      # reasons for ncurses5 and libxcrypt for usual data science stuff.
+      ncurses5
+      libxcrypt
+      zlib
+    ];
+    enable = true;
+    version = "3.11";
+    venv = {
+      enable = true;
+      requirements = ''
+        boto3
+        kubernetes
+        requests
+      '';
+    };
+  };
 
   packages = [
     pkgs-unstable.jq

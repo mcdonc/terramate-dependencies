@@ -28,7 +28,7 @@ generate_hcl "dependencies.tf" {
     }
 
     tm_dynamic "resource" {
-      for_each = let.dependencies
+      for_each = tm_keys(let.dependencies)
       labels   = ["null_resource", "retrieve-${remote.value}-remote-state"]
       iterator = remote
       content {
